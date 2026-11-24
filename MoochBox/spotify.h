@@ -27,7 +27,6 @@ enum SpotifyResult {
 };
 
 const char* spotifyResultText(SpotifyResult result);
-
 void spotifyBegin();
 SpotifyResult spotifyEnsureToken();  // refresh the access token if needed
 
