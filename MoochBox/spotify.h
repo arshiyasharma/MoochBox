@@ -34,3 +34,6 @@ SpotifyResult spotifyEnsureToken();  // refresh the access token if needed
 SpotifyResult spotifySearch(const String& query, Track* out, int maxResults, int& count);
 SpotifyResult spotifyAddToQueue(const String& uri);
 SpotifyResult spotifyNowPlaying(NowPlaying& out);
+SpotifyResult spotifySkip();
+SpotifyResult spotifyPause();
+SpotifyResult spotifyPlay();

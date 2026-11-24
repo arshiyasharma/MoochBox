@@ -1,16 +1,15 @@
 // MoochBox: shared Spotify queue on an ESP32. Full design: ../plan.md
 //
-// Milestone 1 (plan §12, 0:20–0:55): Spotify from Serial Monitor.
-//   - Joins the owner's phone hotspot
-//   - Logs in to Spotify with the refresh token
-//   - Serial Monitor (115200 baud, "Newline"):
-//       type a song name  → shows 5 results
-//       type 1-5          → adds that result to the owner's Spotify queue
-//       now               → what's playing
-//       scan              → list nearby WiFi networks
-//       help              → this list
+// Milestone 1: Spotify from Serial Monitor (search, add to queue, now playing).
+// Milestone 2: the "MoochBox" WiFi, pop-up join page, room code, owner login.
+// Milestone 3: the MoochBox queue (3 per person, swap/remove, lock + send 15 s
+//              before the end) and the guest page to search and add songs.
 //
+// Arduino IDE: Board "ESP32 Dev Module", Partition Scheme "Huge APP (3MB No OTA)".
 // Before uploading: python3 tools/make_secrets.py (creates secrets.h)
+//
+// Serial Monitor (115200 baud, "Newline"):
+//   <song name>  search · 1-5 add straight to Spotify (test) · now · code · scan · help
 
 #if !__has_include("secrets.h")
 #error "secrets.h is missing. In the project folder run: python3 tools/make_secrets.py"
@@ -20,6 +19,10 @@
 #include "leds.h"
 #include "net.h"
 #include "spotify.h"
+#include "sessions.h"
+#include "web.h"
+#include "moochqueue.h"
+#include "engine.h"
 
 static const int MAX_RESULTS = 5;
 static Track results[MAX_RESULTS];
@@ -30,8 +33,9 @@ static void printHelp() {
   Serial.println();
   Serial.println("Commands:");
   Serial.println("  <song name>  search Spotify");
-  Serial.println("  1-5          add that result to the queue");
+  Serial.println("  1-5          add that result straight to Spotify (testing)");
   Serial.println("  now          what's playing");
+  Serial.println("  code         show the room code (owner only)");
   Serial.println("  scan         list nearby WiFi networks");
   Serial.println("  help         this list");
   Serial.println();
@@ -99,6 +103,11 @@ static void handleLine(String line) {
   line.trim();
   if (line.isEmpty()) return;
 
+  if (line.equalsIgnoreCase("code")) {
+    STATE_LOCK;
+    Serial.printf("Room code: %s · guests: %d\n", roomCode().c_str(), sessionsGuestCount());
+    return;
+  }
   if (!netIsConnected()) {
     Serial.println("Offline. Reconnecting to the hotspot...");
     if (!netConnectHotspot(20000)) return;
@@ -115,21 +124,33 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   ledsBegin();
-  Serial.println("\n=== MoochBox · milestone 1: Spotify from Serial Monitor ===");
+  Serial.println("\n=== MoochBox · milestone 3 ===");
 
   netScanAndPrint();
-  if (!netConnectHotspot(20000)) {
-    Serial.println("Fix the hotspot, then press the board's EN/RST button to try again.");
-    return;
+  bool online = netConnectHotspot(20000);
+
+  // The room works even without internet; only Spotify needs the hotspot.
+  engineBegin();
+  {
+    STATE_LOCK;
+    sessionsBegin();
   }
+  netStartAccessPoint();
+  webBegin();
 
   spotifyBegin();
-  if (handleResult(spotifyEnsureToken())) doNowPlaying();
+  if (online) {
+    if (handleResult(spotifyEnsureToken())) doNowPlaying();
+  } else {
+    Serial.println("No internet: fix the hotspot, then type any command to retry.");
+  }
   printHelp();
 }
 
 void loop() {
+  netLoop();
   ledsUpdate();
+  engineLoop();  // Spotify work for phones: search, now playing, lock + send
 
   while (Serial.available()) {
     char c = Serial.read();

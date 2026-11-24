@@ -137,10 +137,10 @@ static int apiRequest(HTTPClient& http, WiFiClientSecure& client, const char* me
     if (!http.begin(client, String(API) + path)) return -1;
     http.setTimeout(10000);  // slow hotspot: wait up to 10 s for data
     http.addHeader("Authorization", "Bearer " + accessToken);
-    bool isPost = strcmp(method, "POST") == 0;
+    bool isGet = strcmp(method, "GET") == 0;
     // HTTPClient skips Content-Length for an empty body; Spotify answers 411 without it.
-    if (isPost) http.addHeader("Content-Length", "0");
-    int code = isPost ? http.POST("") : http.GET();
+    if (!isGet) http.addHeader("Content-Length", "0");
+    int code = isGet ? http.GET() : http.sendRequest(method, "");
     if (code == 401 && attempt == 0) {
       http.end();
       accessToken = "";  // force a refresh, then retry
@@ -242,3 +242,20 @@ SpotifyResult spotifyNowPlaying(NowPlaying& out) {
   out.track.artist = doc["item"]["artists"][0]["name"].as<String>();
   return SPOTIFY_OK;
 }
+
+// POST/PUT with no body; any 2xx = done.
+static SpotifyResult playerCommand(const char* method, const char* path) {
+  WiFiClientSecure client;
+  client.useBuiltinCACertBundle();
+  HTTPClient http;
+  int code = apiRequest(http, client, method, path);
+  if ((code < 200 || code >= 300) && code > 0) {
+    Serial.printf("%s %s failed: HTTP %d %s\n", method, path, code, http.getString().c_str());
+  }
+  http.end();
+  return statusToResult(code);
+}
+
+SpotifyResult spotifySkip() { return playerCommand("POST", "/me/player/next"); }
+SpotifyResult spotifyPause() { return playerCommand("PUT", "/me/player/pause"); }
+SpotifyResult spotifyPlay() { return playerCommand("PUT", "/me/player/play"); }
