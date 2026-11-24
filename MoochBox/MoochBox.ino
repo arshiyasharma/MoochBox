@@ -18,10 +18,10 @@ void loop() {
   digitalWrite(GREEN_LED, HIGH);
   digitalWrite(RED_LED, LOW);
   Serial.println("green on");
-  delay(500);
+  delay(2000);
 
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, HIGH);
   Serial.println("red on");
-  delay(500);
+  delay(2000);
 }

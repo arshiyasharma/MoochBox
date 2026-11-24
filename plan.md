@@ -1,6 +1,6 @@
 # MoochBox: Shared Spotify Queue on an ESP32
 
-> One owner with Spotify Premium. Guests join MoochBox's WiFi, log in with a room code, and add songs from their phone browser. MoochBox feeds the songs into the owner's Spotify. Guests need no Spotify account, no Premium and no app.
+> One owner with Spotify Premium. Guests join MoochBox's password-protected WiFi, type a name, and add songs from their phone browser. MoochBox feeds the songs into the owner's Spotify. Guests need no Spotify account, no Premium and no app.
 
 ---
 
@@ -115,9 +115,9 @@ MoochBox queue (editable)              Spotify queue (add-only)
 | Role | How you get it | Can do |
 |---|---|---|
 | **Owner** (Arshiya) | Owner password (§4.3) | Everything + make/remove hosts |
-| **Host** | Owner taps **Make host** on a person | Skip, pause, lock adding, change room code, kick, edit rules, remove/reorder any song, make/remove DJs |
+| **Host** | Owner taps **Make host** on a person | Skip, pause, lock adding, change WiFi password, kick, edit rules, remove/reorder any song, make/remove DJs |
 | **DJ** | Owner or host taps **Make DJ** | Remove/reorder anyone's songs. Nothing else. |
-| **Guest** | Name + room code | Search, add (up to the limit), remove/swap **own** songs, vote |
+| **Guest** | MoochBox WiFi password + a name | Search, add (up to the limit), remove/swap **own** songs, vote |
 
 - Only the owner can make or remove hosts.
 - Nobody can become owner. There's only the password.
@@ -147,9 +147,13 @@ MoochBox queue (editable)              Spotify queue (add-only)
 
 | Lock | Set by | Protects | Required |
 |---|---|---|---|
-| WiFi password (WPA2) | Owner, `.env` | Strangers off the network; encrypts traffic over the air | Recommended |
-| **Room code** | Owner/host, changeable at the party | Seeing or touching the queue. No valid session = every request rejected. | **Yes** |
+| **WiFi password** (WPA2, 8+ chars) | Owner in `.env`; owner/host can change it at the party | **The room itself.** Only people you give it to can join the network, so only they can reach the queue. Also encrypts traffic over the air. | **Yes** |
 | **Owner password** | Arshiya, `.env` | Owner role | **Yes** |
+
+- **One password to get in.** No separate room code: if you're on MoochBox's WiFi, you're a friend.
+- Without a session (name entered), every request and the WebSocket are still rejected, so roles and limits always apply.
+- **Kick one person:** ends their session and **blocks their phone** (by its WiFi MAC address), then disconnects it. They can't rejoin with a new name.
+- **Kick everyone:** change the WiFi password. MoochBox restarts its network with the new one, every phone disconnects, and only people you tell the new password can rejoin. Owner and hosts just log back in.
 
 ### 4.5 Sessions
 
@@ -157,13 +161,12 @@ MoochBox queue (editable)              Spotify queue (add-only)
 |---|---|---|
 | Owner | 6 h | Logs out, or a new owner password is uploaded |
 | Host | 6 h | Logs out, or the owner removes host |
-| DJ / Guest | 6 h | Room code changes, kicked, or logs out |
+| DJ / Guest | 6 h | WiFi password changes, kicked, or logs out |
 
 - Token: random 128-bit, stored in the phone's `localStorage`. A refresh keeps you logged in and keeps your songs yours.
-- Wrong room code: 5 tries → 60 s lockout.
-- **Change room code** logs out all guests and DJs (owner and hosts stay).
+- A new WiFi password saved at the party is kept in NVS and overrides `.env` until the next upload.
 
-> **Security note:** the local site is plain HTTP. With a WiFi password set, WPA2 encrypts it over the air. Party-level security, not bank-level.
+> **Security note:** the local site is plain HTTP. WPA2 (the WiFi password) encrypts it over the air. Party-level security, not bank-level.
 
 ---
 
@@ -220,7 +223,7 @@ sequenceDiagram
 2. Plug in MoochBox → wait for **solid green**.
 3. Open Spotify on the phone and **press play**.
 4. Join `MoochBox` WiFi → **Owner login** → password → owner panel.
-5. Tell guests the WiFi password and the room code.
+5. Tell friends the MoochBox WiFi password.
 
 ### 6.3 Guest joins
 
@@ -230,10 +233,10 @@ sequenceDiagram
     participant Phone as Guest browser
     participant ESP as MoochBox
 
-    Guest->>Phone: Pick "MoochBox" in WiFi settings
+    Guest->>Phone: Pick "MoochBox" in WiFi settings + type WiFi password
     Phone->>ESP: Captive portal check
     ESP-->>Phone: Join page pops up
-    Guest->>Phone: Name + room code
+    Guest->>Phone: Type a name
     Phone->>ESP: POST /api/join
     ESP-->>Phone: Session token (guest)
     Phone->>ESP: Open WebSocket
@@ -305,7 +308,7 @@ One vote per person.
 |---|---|---|
 | M1 | `MoochBox` access point + connection to the owner's hotspot | §3.2 |
 | M2 | Captive portal: join page pops up | §6.3 |
-| M3 | Join with name + room code; blocked/unique names; 6 h sessions | §4 |
+| M3 | Join with the WiFi password + a name; blocked/unique names; 6 h sessions; kick = block phone | §4 |
 | M4 | Owner login with the owner password | §4.3 |
 | M5 | Roles: Owner / Host / DJ / Guest | §4.1 |
 | M6 | Search (8 results, trimmed) | §6.4 |
@@ -313,7 +316,7 @@ One vote per person.
 | M8 | 3 songs waiting per person, freed when one plays | §5 |
 | M9 | Remove / swap own songs | §5 |
 | M10 | Live now playing + queue + activity on every phone | WebSocket |
-| M11 | Owner/host panel: skip, pause, lock adding, room code, kick, rules, roles | §8 |
+| M11 | Owner/host panel: skip, pause, lock adding, change WiFi password, kick, rules, roles | §8 |
 | M12 | Clear error messages | §10.6 |
 | M13 | Green + red status LEDs | §9 |
 | M14 | Vote to remove | §6.6 |
@@ -338,9 +341,7 @@ Mobile-first, dark theme, big buttons. Songs show a **colored tile with initials
 ┌──────────────────────────┐
 │        🎵 MoochBox        │
 │  Your name   [ Priya    ] │
-│  Room code   [ •••••••• ] │
 │  [      Join the jam     ]│
-│  Wrong code (3 tries left)│
 │        Owner login        │
 └──────────────────────────┘
 ```
@@ -379,8 +380,8 @@ Mobile-first, dark theme, big buttons. Songs show a **colored tile with initials
 ├──────────────────────────┤
 │ [⏭ Skip] [⏯ Pause] [🔒 Lock]│
 ├──────────────────────────┤
-│ Room code: BANANA42       │
-│ [Change code → kicks all] │
+│ WiFi password: ••••••••   │
+│ [Change → kicks everyone] │
 ├──────────────────────────┤
 │ Songs per person   [ 3 ▾] │
 │ Vote remove        [ on ] │
@@ -445,8 +446,7 @@ All secrets live in **one file: `.env` at the top of the project** (next to `pla
 | `.env` key | What | In `secrets.h` as |
 |---|---|---|
 | `MOOCHBOX_OWNER_PASSWORD` | Owner password | **Salted hash only** |
-| `MOOCHBOX_WIFI_PASSWORD` | `MoochBox` network password | Plain |
-| `MOOCHBOX_ROOM_CODE` | Starting room code | Plain |
+| `MOOCHBOX_WIFI_PASSWORD` | `MoochBox` network password = room access (8+ chars) | Plain |
 | `MOOCHBOX_HOTSPOT_SSID` / `_PASSWORD` | Owner's phone hotspot | Plain |
 | `SPOTIFY_CLIENT_ID` / `_SECRET` | Spotify dashboard | Plain |
 | `SPOTIFY_REFRESH_TOKEN` | From `get_token.py` | Plain (copied to NVS on first boot) |
@@ -461,7 +461,7 @@ All secrets live in **one file: `.env` at the top of the project** (next to `pla
 Session   { token, name, role, expiresAt }
 QueueItem { id, uri, title, artist, durationMs, addedBy, state: waiting|locked|playing }
 Vote      { target, kind: remove|skip, voters[], startedAt }
-Settings  { roomCode, perPersonLimit, spamGapS, voteRemoveOn, voteSkipOn, thresholdPct, voteMin, lockAtS }
+Settings  { wifiPassword, bannedMacs[], perPersonLimit, spamGapS, voteRemoveOn, voteSkipOn, thresholdPct, voteMin, lockAtS }
 ```
 
 ### 10.4 Local API (phone ↔ MoochBox)
@@ -469,7 +469,7 @@ Settings  { roomCode, perPersonLimit, spamGapS, voteRemoveOn, voteSkipOn, thresh
 | Method | Path | Min role | Purpose |
 |---|---|---|---|
 | GET | `/` | none | Join page (captive portal target) |
-| POST | `/api/join` | room code | → guest token |
+| POST | `/api/join` | on MoochBox WiFi | `{name}` → guest token |
 | POST | `/api/owner/login` | owner password | → owner token |
 | POST | `/api/logout` | any | End session |
 | GET | `/api/search?q=` | guest | Search |
@@ -480,8 +480,8 @@ Settings  { roomCode, perPersonLimit, spamGapS, voteRemoveOn, voteSkipOn, thresh
 | POST | `/api/vote` | guest | `{target, kind}` |
 | WS | `/ws?token=` | guest | Live updates |
 | POST | `/api/host/skip` · `pause` · `lock` | host | Controls |
-| POST | `/api/host/code` | host | New room code, logs out guests + DJs |
-| POST | `/api/host/kick` | host | Remove a person |
+| POST | `/api/host/wifi-password` | host | New WiFi password; restarts the network, everyone disconnects |
+| POST | `/api/host/kick` | host | End session + block that phone's MAC + disconnect it |
 | POST | `/api/host/rules` | host | Edit §5 |
 | POST | `/api/host/role` | host (DJ) / owner (host) | Set a role |
 
@@ -530,7 +530,7 @@ ESP.nosync/
 │   ├── net.cpp/.h          ← AP + station + captive DNS
 │   ├── spotify.cpp/.h      ← tokens + API calls
 │   ├── moochqueue.cpp/.h   ← queue, limits, lock timer
-│   ├── sessions.cpp/.h     ← room code, roles, lockouts
+│   ├── sessions.cpp/.h     ← names, roles, kicks/blocks, owner lockout
 │   ├── votes.cpp/.h        ← remove + skip votes
 │   ├── web.cpp/.h          ← HTTP routes + WebSocket
 │   ├── leds.cpp/.h         ← green + red LED patterns
@@ -554,6 +554,8 @@ ESP.nosync/
 | Captive popup doesn't appear | Show `http://192.168.4.1` in the join instructions |
 | iPhone drops a "no internet" WiFi | Answer iOS/Android check URLs so phones treat it as signed in. Test early. |
 | Owner password guessed | 10+ chars, 5-try lockout, failed-try counter |
+| WiFi password spreads beyond friends | Change it from the panel: everyone drops, only people you tell can rejoin |
+| Kicked phone changes its MAC (e.g. iPhone "rotating" private address) | Block won't hold. Change the WiFi password. |
 | No active Spotify device | Message + red blink; queue waits |
 | RAM runs out | One Spotify request at a time, small JSON, test with 5+ phones early |
 | Hotspot is 5 GHz only | iPhone: Maximize Compatibility |
@@ -578,10 +580,10 @@ Guest ──▶ MoochBox ──✖ anything else                     ❌ no inte
 |---|---|---|
 | 0:00–0:20 | Spotify app, `get_token.py`, `.env` filled, `make_secrets.py`, libraries installed | `secrets.h` generated; sketch compiles |
 | 0:20–0:55 | `spotify.cpp`: refresh, search, add to queue, now playing | Song typed in Serial Monitor plays on the owner's phone |
-| 0:55–1:30 | AP + station + captive portal + join + sessions/roles + owner login | Page pops up; wrong code rejected; owner password works |
+| 0:55–1:30 | AP + station + captive portal + join + sessions/roles + owner login | Wrong WiFi password can't join; page pops up; owner password works |
 | 1:30–2:20 | `moochqueue.cpp`: queue, 3-per-person, lock timer, played detection | 3 songs from 2 phones play in order; slots free |
 | 2:20–2:50 | Guest page: search, add, remove, swap, live updates | 2 phones see each other's changes live |
-| 2:50–3:15 | Owner/host panel | Code change kicks guests; DJ can remove any song |
+| 2:50–3:15 | Owner/host panel | Kicked phone can't rejoin; WiFi password change drops everyone; DJ can remove any song |
 | 3:15–3:30 | LEDs + error states | Hotspot off → red + message |
 | 3:30–3:50 | Vote to remove + vote to skip | 3 phones vote out a song and skip one |
 | 3:50–4:00 | Demo run with 3+ phones | |
@@ -595,7 +597,7 @@ Guest ──▶ MoochBox ──✖ anything else                     ❌ no inte
 | N1 | Reactions 🔥 💀 ❤️ | Floating emoji on everyone's screen; no Spotify calls |
 | N2 | Album covers | MoochBox downloads the 64×64 cover (~4 KB) and serves it locally; optional blurry 8×8 (< 1 KB) style |
 | N3 | Round-robin order | One song per person in turn |
-| N4 | Join QR on the owner panel | Scan to join the WiFi |
+| N4 | Join QR on the owner panel | Scan to join the WiFi (QR holds the network name + password) |
 | N5 | **Buzzer** | Chirp on add, low buzz on error, boot jingle |
 | N6 | **Button** | Short press = skip, long press = lock adding |
 | N7 | **White LED** | Flash on each add |
@@ -603,7 +605,7 @@ Guest ──▶ MoochBox ──✖ anything else                     ❌ no inte
 | N9 | Party recap | Top adders, most 🔥 song, play history |
 | N10 | Queue survives reboots | Save to NVS |
 | N11 | No duplicates | Block a song that's already waiting |
-| N12 | OLED screen | Now playing + room code on the box |
+| N12 | OLED screen | Now playing on the box |
 | N13 | Case | 3D-printed or tin |
 
 ---
@@ -631,3 +633,4 @@ Guest ──▶ MoochBox ──✖ anything else                     ❌ no inte
 | D6 | Hardware in the build: **green + red LED only**. Buzzer, button, white LED, NFC → §13 |
 | D7 | Votes to remove and to skip are in the MVP |
 | D8 | Toolchain: **Arduino IDE**, sketch at `MoochBox/MoochBox.ino` inside this repo; secrets in `.env` → `make_secrets.py` → `secrets.h` (both gitignored) |
+| D9 | **WiFi password = room access.** No separate room code. Kick = block the phone; changing the WiFi password kicks everyone. |
