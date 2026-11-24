@@ -9,59 +9,72 @@ static const char PAGE_HTML[] = R"MOOCH(<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MoochBox</title>
 <style>
-  :root { --bg:#0e0f12; --card:#181a20; --line:#2a2d36; --text:#f2f3f5; --muted:#9aa0ab;
-          --green:#1ed760; --red:#ff5a5f; --amber:#ffb020; }
+  /* Palette: #FA699E hot pink · #FF9FC7 pink · #FFE7F0 blush · #4ADD82 green */
+  :root { --hot:#FA699E; --pink:#FF9FC7; --blush:#FFE7F0; --green:#4ADD82;
+          --card:#ffffff; --ink:#3d1a2a; --muted:#8a5a6f; --line:#ffd3e4;
+          --danger:#c2255c; --soft:#fff5f9; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text);
-         font:16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         display:flex; justify-content:center; padding:20px 14px 40px; }
+  body { margin:0; color:var(--ink); min-height:100vh;
+         background:linear-gradient(180deg, var(--blush) 0%, var(--soft) 60%, #ffffff 100%);
+         font:16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         display:flex; justify-content:center; padding:20px 14px 48px; }
   main { width:100%; max-width:420px; }
-  h1 { font-size:26px; margin:4px 0 2px; text-align:center; }
-  h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 10px; }
-  .sub { color:var(--muted); text-align:center; margin:0 0 18px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
-  label { display:block; font-size:14px; color:var(--muted); margin:0 0 6px; }
-  input { width:100%; padding:13px; margin:0 0 14px; border-radius:12px; border:1px solid var(--line);
-          background:#0b0c0f; color:var(--text); font-size:17px; }
-  input.code { letter-spacing:12px; text-align:center; font-size:28px; }
-  button { width:100%; padding:13px; border:0; border-radius:12px; background:var(--green); color:#000;
-           font-size:16px; font-weight:700; }
-  button.ghost { background:transparent; color:var(--muted); font-weight:500; margin-top:6px; }
-  button.danger { background:transparent; color:var(--red); border:1px solid var(--red); }
-  button.danger.armed { background:var(--red); color:#000; }
-  button.small { width:auto; padding:7px 12px; font-size:14px; border-radius:10px; }
-  button.outline { background:transparent; color:var(--text); border:1px solid var(--line); font-weight:500; }
-  button:disabled { opacity:.45; }
-  .error { color:var(--red); min-height:20px; margin:-4px 0 10px; font-size:14px; }
-  .hint { background:#1d2a20; border:1px solid #2c5a3a; color:#cfeedd; border-radius:12px;
+  h1 { font-size:30px; margin:6px 0 0; text-align:center; color:var(--hot); letter-spacing:-.02em; }
+  h2 { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--hot); margin:0 0 10px; font-weight:800; }
+  .sub { color:var(--muted); text-align:center; margin:2px 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:16px; margin-bottom:14px;
+          box-shadow:0 6px 20px rgba(250,105,158,.10); }
+  label { display:block; font-size:14px; color:var(--muted); margin:0 0 6px; font-weight:600; }
+  input { width:100%; padding:13px 14px; margin:0 0 14px; border-radius:14px; border:2px solid var(--line);
+          background:var(--soft); color:var(--ink); font-size:17px; outline:none; }
+  input:focus { border-color:var(--pink); background:#fff; }
+  input::placeholder { color:#c59ab0; }
+  input.code { letter-spacing:12px; text-align:center; font-size:28px; font-weight:700; }
+  button { width:100%; padding:13px; border:0; border-radius:14px; background:var(--hot); color:var(--ink);
+           font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(250,105,158,.30); }
+  button:active { transform:translateY(1px); }
+  button.ghost { background:transparent; color:var(--muted); font-weight:600; margin-top:6px; box-shadow:none; }
+  button.danger { background:#fff; color:var(--danger); border:2px solid var(--danger); box-shadow:none; }
+  button.danger.armed { background:var(--danger); color:#fff; }
+  button.small { width:auto; padding:7px 12px; font-size:14px; border-radius:12px; box-shadow:none; }
+  button.outline { background:var(--soft); color:var(--ink); border:2px solid var(--line); font-weight:700; }
+  button:disabled { opacity:.5; }
+  select { background:var(--soft); color:var(--ink); border:2px solid var(--line); border-radius:12px; padding:6px 10px; font-size:14px; }
+  .error { color:var(--danger); min-height:20px; margin:-4px 0 10px; font-size:14px; font-weight:600; }
+  .hint { background:#ecfff3; border:2px solid var(--green); color:var(--ink); border-radius:14px;
           padding:12px 14px; font-size:14px; margin-bottom:14px; }
-  .warn { background:#2c2413; border-color:#6b5520; color:#ffe3a8; }
-  .badge { display:inline-block; padding:3px 10px; border-radius:99px; background:#24262e; font-size:13px; }
-  .bigcode { font-size:48px; font-weight:800; letter-spacing:14px; text-align:center; margin:6px 0; }
-  .row { display:flex; justify-content:space-between; align-items:center; gap:8px; color:var(--muted); font-size:14px; margin:4px 0; }
+  .warn { background:var(--soft); border-color:var(--pink); }
+  .badge { display:inline-block; padding:3px 10px; border-radius:99px; background:var(--blush); color:var(--ink); font-size:13px; font-weight:700; }
+  .bigcode { font-size:48px; font-weight:900; letter-spacing:14px; text-align:center; margin:6px 0;
+             color:var(--hot); background:var(--blush); border-radius:16px; padding:6px 0; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:8px; color:var(--muted); font-size:14px; margin:6px 0; }
   .song { display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line); }
   .song:first-of-type { border-top:0; }
-  .tile { width:44px; height:44px; border-radius:10px; flex:none; display:flex; align-items:center;
-          justify-content:center; font-weight:800; color:#000; font-size:15px; }
+  .tile { width:46px; height:46px; border-radius:14px; flex:none; display:flex; align-items:center;
+          justify-content:center; font-weight:900; color:var(--ink); font-size:15px; }
   .info { flex:1; min-width:0; }
-  .title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
+  .title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700; }
   .meta { color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .actions { display:flex; gap:6px; flex:none; }
-  .bar { height:4px; background:var(--line); border-radius:4px; margin-top:10px; overflow:hidden; }
-  .bar > div { height:100%; background:var(--green); width:0; }
-  .lock { color:var(--amber); font-size:13px; }
+  .bar { height:6px; background:var(--blush); border-radius:6px; margin-top:10px; overflow:hidden; }
+  .bar > div { height:100%; background:linear-gradient(90deg, var(--pink), var(--hot)); width:0; border-radius:6px; }
+  .lock { color:var(--hot); font-size:13px; font-weight:700; }
   .empty { color:var(--muted); font-size:14px; padding:6px 0; }
-  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#24262e;
-           border:1px solid var(--line); padding:10px 16px; border-radius:12px; font-size:14px;
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--ink); color:#fff;
+           padding:10px 16px; border-radius:14px; font-size:14px; font-weight:600;
            max-width:90%; opacity:0; transition:opacity .2s; pointer-events:none; }
   .toast.show { opacity:1; }
-  select { background:#0b0c0f; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:7px 10px; font-size:14px; }
   .controls { display:flex; gap:8px; margin-top:12px; }
   .controls button { flex:1; }
   .person { padding:10px 0; border-top:1px solid var(--line); }
   .person .btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .voted { border-color:var(--green) !important; color:var(--green) !important; }
+  .voted { border-color:var(--green) !important; background:#ecfff3 !important; }
   .divider { height:1px; background:var(--line); margin:14px 0; }
+  .roles { font-size:14px; color:var(--ink); }
+  .roles div { padding:8px 0; border-top:1px solid var(--line); }
+  .roles div:first-child { border-top:0; }
+  .roles b { display:block; margin-bottom:2px; }
+  .roles span { color:var(--muted); }
   .hidden { display:none !important; }
 </style>
 </head>
@@ -76,7 +89,7 @@ static const char PAGE_HTML[] = R"MOOCH(<!doctype html>
   <!-- Join -->
   <section id="join" class="card hidden">
     <label for="name">Your name</label>
-    <input id="name" maxlength="20" autocomplete="nickname" placeholder="Priya">
+    <input id="name" maxlength="20" autocomplete="nickname" placeholder="Moocher">
     <label for="code">Room code</label>
     <input id="code" class="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="····">
     <div class="error" id="joinError"></div>
@@ -155,6 +168,21 @@ static const char PAGE_HTML[] = R"MOOCH(<!doctype html>
       <div class="divider"></div>
       <div class="row"><span>People in the room</span><span id="guestCount">0 / 10</span></div>
       <div id="peopleBox"></div>
+
+      <div class="divider"></div>
+      <h2>What the roles mean</h2>
+      <div class="roles">
+        <div><b>👑 Owner (you)</b><span>Everything a host can do, plus: make or remove hosts, see the room code,
+          make a new code (logs out every guest), kick hosts. Only one owner, set by the owner password.</span></div>
+        <div><b>⭐ Host</b><span>Runs the party: skip, pause/play, lock adding, change the rules, remove anyone's
+          waiting song, make or remove DJs, kick guests and DJs. Can't see the room code or touch hosts.</span></div>
+        <div><b>🎧 DJ</b><span>Curates the queue: can remove anyone's waiting song. Otherwise the same as a guest.
+          No skip, rules or people controls.</span></div>
+        <div><b>🙂 Guest</b><span>Search and add songs (up to the per-person limit), swap or remove their own
+          waiting songs, vote to remove other songs and vote to skip.</span></div>
+        <div><b>🔒 Locked song</b><span>The next song, already sent to Spotify ~15 s before the current one ends.
+          Nobody can change it.</span></div>
+      </div>
     </div>
 
     <div class="row"><span id="meLine"></span><button class="ghost small" id="logoutBtn">Log out</button></div>
@@ -168,7 +196,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":
 const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 const initials = (s) => String(s).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "♪";
-const tile = (t) => `<div class="tile" style="background:hsl(${hue(t.title)},70%,62%)">${esc(initials(t.title))}</div>`;
+const TILE_COLORS = ["#FA699E", "#FF9FC7", "#4ADD82", "#FFC2DA", "#9BEBB8"];
+const tile = (t) => `<div class="tile" style="background:${TILE_COLORS[hue(t.title) % TILE_COLORS.length]}">${esc(initials(t.title))}</div>`;
 
 const ua = navigator.userAgent;
 const inPopup = /iPhone|iPad|iPod/.test(ua) && !/Safari\//.test(ua);  // iOS captive pop-up browser
@@ -442,7 +471,7 @@ function renderPeople() {
         : `<button class="small outline" onclick="setRole(${p.id},'dj')">🎧 Make DJ</button>`;
       if (isOwner || p.role !== "host") btns += `<button class="small danger" onclick="kick(${p.id}, this)">Kick</button>`;
     }
-    return `<div class="person"><div class="row" style="color:var(--text);margin:0">
+    return `<div class="person"><div class="row" style="color:var(--ink);margin:0">
       <span>${badges[p.role] || ""}${esc(p.name)}${p.me ? " (you)" : ""}</span>
       <span class="meta">${p.songs} song${p.songs === 1 ? "" : "s"}</span></div>
       ${btns ? `<div class="btns">${btns}</div>` : ""}</div>`;
