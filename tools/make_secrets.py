@@ -18,7 +18,6 @@ import secrets
 import subprocess
 import sys
 from pathlib import Path
-
 from envfile import ENV_PATH, load_env
 
 ROOT = ENV_PATH.parent
