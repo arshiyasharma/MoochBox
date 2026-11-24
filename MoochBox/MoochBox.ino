@@ -1,27 +1,143 @@
-// MoochBox: shared Spotify queue on an ESP32.
-// See ../plan.md for the full design.
+// MoochBox: shared Spotify queue on an ESP32. Full design: ../plan.md
 //
-// For now this is a wiring test: it blinks the green and red LEDs
-// and prints to Serial Monitor (115200 baud).
+// Milestone 1 (plan §12, 0:20–0:55): Spotify from Serial Monitor.
+//   - Joins the owner's phone hotspot
+//   - Logs in to Spotify with the refresh token
+//   - Serial Monitor (115200 baud, "Newline"):
+//       type a song name  → shows 5 results
+//       type 1-5          → adds that result to the owner's Spotify queue
+//       now               → what's playing
+//       scan              → list nearby WiFi networks
+//       help              → this list
+//
+// Before uploading: python3 tools/make_secrets.py (creates secrets.h)
 
-const int GREEN_LED = 18;
-const int RED_LED = 19;
+#if !__has_include("secrets.h")
+#error "secrets.h is missing. In the project folder run: python3 tools/make_secrets.py"
+#endif
+
+#include <WiFi.h>
+#include "leds.h"
+#include "net.h"
+#include "spotify.h"
+
+static const int MAX_RESULTS = 5;
+static Track results[MAX_RESULTS];
+static int resultCount = 0;
+static String inputLine;
+
+static void printHelp() {
+  Serial.println();
+  Serial.println("Commands:");
+  Serial.println("  <song name>  search Spotify");
+  Serial.println("  1-5          add that result to the queue");
+  Serial.println("  now          what's playing");
+  Serial.println("  scan         list nearby WiFi networks");
+  Serial.println("  help         this list");
+  Serial.println();
+}
+
+static String formatTime(uint32_t ms) {
+  uint32_t s = ms / 1000;
+  char buf[12];
+  snprintf(buf, sizeof(buf), "%lu:%02lu", (unsigned long)(s / 60), (unsigned long)(s % 60));
+  return buf;
+}
+
+// Sets the LEDs from a Spotify result and prints any problem.
+static bool handleResult(SpotifyResult r) {
+  if (r == SPOTIFY_OK) {
+    ledsSet(LED_OK);
+    return true;
+  }
+  ledsSet(r == SPOTIFY_NO_DEVICE ? LED_NO_DEVICE : LED_ERROR);
+  Serial.printf("✗ %s\n", spotifyResultText(r));
+  return false;
+}
+
+static void doSearch(const String& query) {
+  Serial.printf("Searching \"%s\"...\n", query.c_str());
+  if (!handleResult(spotifySearch(query, results, MAX_RESULTS, resultCount))) return;
+  if (resultCount == 0) {
+    Serial.println("No results.");
+    return;
+  }
+  for (int i = 0; i < resultCount; i++) {
+    Serial.printf("  %d. %s · %s (%s)\n", i + 1, results[i].title.c_str(),
+                  results[i].artist.c_str(), formatTime(results[i].durationMs).c_str());
+  }
+  Serial.println("Type a number to add it to the queue.");
+}
+
+static void doAdd(int index) {
+  if (index < 0 || index >= resultCount) {
+    Serial.println("Search for a song first, then type its number.");
+    return;
+  }
+  const Track& t = results[index];
+  Serial.printf("Adding %s · %s...\n", t.title.c_str(), t.artist.c_str());
+  if (handleResult(spotifyAddToQueue(t.uri))) {
+    Serial.println("✓ Added. It's in your Spotify queue.");
+    ledsFlashAdded();
+  }
+}
+
+static void doNowPlaying() {
+  NowPlaying np;
+  if (!handleResult(spotifyNowPlaying(np))) return;
+  if (!np.active) {
+    Serial.println("Nothing playing. Open Spotify on the phone and press play.");
+    ledsSet(LED_NO_DEVICE);
+    return;
+  }
+  Serial.printf("%s %s · %s  %s / %s\n", np.isPlaying ? "▶" : "⏸", np.track.title.c_str(),
+                np.track.artist.c_str(), formatTime(np.progressMs).c_str(),
+                formatTime(np.track.durationMs).c_str());
+}
+
+static void handleLine(String line) {
+  line.trim();
+  if (line.isEmpty()) return;
+
+  if (!netIsConnected()) {
+    Serial.println("Offline. Reconnecting to the hotspot...");
+    if (!netConnectHotspot(20000)) return;
+  }
+
+  if (line.equalsIgnoreCase("help")) printHelp();
+  else if (line.equalsIgnoreCase("now")) doNowPlaying();
+  else if (line.equalsIgnoreCase("scan")) netScanAndPrint();
+  else if (line.length() == 1 && line[0] >= '1' && line[0] <= '0' + MAX_RESULTS) doAdd(line[0] - '1');
+  else doSearch(line);
+}
 
 void setup() {
   Serial.begin(115200);
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(RED_LED, OUTPUT);
-  Serial.println("MoochBox: LED wiring test");
+  delay(500);
+  ledsBegin();
+  Serial.println("\n=== MoochBox · milestone 1: Spotify from Serial Monitor ===");
+
+  netScanAndPrint();
+  if (!netConnectHotspot(20000)) {
+    Serial.println("Fix the hotspot, then press the board's EN/RST button to try again.");
+    return;
+  }
+
+  spotifyBegin();
+  if (handleResult(spotifyEnsureToken())) doNowPlaying();
+  printHelp();
 }
 
 void loop() {
-  digitalWrite(GREEN_LED, HIGH);
-  digitalWrite(RED_LED, LOW);
-  Serial.println("green on");
-  delay(2000);
+  ledsUpdate();
 
-  digitalWrite(GREEN_LED, LOW);
-  digitalWrite(RED_LED, HIGH);
-  Serial.println("red on");
-  delay(2000);
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (inputLine.length()) handleLine(inputLine);
+      inputLine = "";
+    } else if (inputLine.length() < 100) {
+      inputLine += c;
+    }
+  }
 }

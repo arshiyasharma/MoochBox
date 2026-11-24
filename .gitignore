@@ -5,3 +5,6 @@ MoochBox/secrets.h
 
 # OS / editor
 .DS_Store
+
+# Python
+__pycache__/

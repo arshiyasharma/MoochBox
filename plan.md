@@ -579,6 +579,7 @@ ESP.nosync/
 | No active Spotify device | Message + red blink; queue waits |
 | RAM runs out | One Spotify request at a time, small JSON, test with 5+ phones early |
 | Hotspot is 5 GHz only | iPhone: Maximize Compatibility |
+| App outgrows flash (milestone 1 already uses 85% of the default 1.3 MB) | Arduino IDE → Tools → Partition Scheme → **Huge APP (3MB No OTA)** once the web server is added |
 | Owner queues in the Spotify app directly | Those play first; MoochBox's songs follow. Fine. |
 
 ### 11.2 Guests and internet
@@ -599,7 +600,7 @@ Guest ──▶ MoochBox ──✖ anything else                     ❌ no inte
 | Time | Milestone | Done when |
 |---|---|---|
 | 0:00–0:20 | Spotify app, `get_token.py`, `.env` filled, `make_secrets.py`, libraries installed | `secrets.h` generated; sketch compiles |
-| 0:20–0:55 | `spotify.cpp`: refresh, search, add to queue, now playing | Song typed in Serial Monitor plays on the owner's phone |
+| 0:20–0:55 | `spotify.cpp`: refresh, search, add to queue, now playing **(written, compiles)** | Song typed in Serial Monitor plays on the owner's phone |
 | 0:55–1:30 | AP + station + captive portal + join + sessions/roles + owner login | Page pops up; wrong code rejected; only the owner sees the code |
 | 1:30–2:20 | `moochqueue.cpp`: queue, 3-per-person, lock timer, played detection | 3 songs from 2 phones play in order; slots free |
 | 2:20–2:50 | Guest page: search, add, remove, swap, live updates | 2 phones see each other's changes live |
