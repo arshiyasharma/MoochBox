@@ -1,7 +1,6 @@
 # MoochBox: Shared Spotify Queue on an ESP32
 
 > One owner with Spotify Premium. Guests join MoochBox's WiFi, enter a 4-digit room code that only the owner can see, and add songs from their phone browser. MoochBox feeds the songs into the owner's Spotify. Guests need no Spotify account, no Premium and no app.
-
 ---
 
 ## 0. At a glance
